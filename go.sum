@@ -1,2 +1,6 @@
+github.com/NicoNex/echotron/v3 v3.43.0 h1:efE2spw3mfU0Ev20m0PqqvgMSm0xHzgSxlWAEmC9RC4=
+github.com/NicoNex/echotron/v3 v3.43.0/go.mod h1:7LvjveJmezuUOeaoA3nzQduNlSPQYfq219Z+baKY04Q=
 github.com/kelseyhightower/envconfig v1.4.0 h1:Im6hONhd3pLkfDFsbRgu68RDNkGF1r3dvMUtDTo2cv8=
 github.com/kelseyhightower/envconfig v1.4.0/go.mod h1:cccZRl6mQpaq41TPp5QxidR+Sa3axMbJDNb//FQX6Gg=
+golang.org/x/time v0.5.0 h1:o7cqy6amK/52YcAKIPlM3a+Fpj35zvRj2TP+e1xFSfk=
+golang.org/x/time v0.5.0/go.mod h1:3BpzKBy/shNhVucY/MWOyx10tF3SFh9QdLuxbVysPQM=
