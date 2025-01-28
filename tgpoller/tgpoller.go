@@ -4,37 +4,44 @@ import (
 	"context"
 	"log"
 	"sync"
-
-	"github.com/NicoNex/echotron/v3"
+	"time"
 )
 
-type handler interface {
-	HandleUpdate(ctx context.Context, update *echotron.Update)
+type updateIDGetter[T any] func(update T) int
+
+type handler[T any] interface {
+	GetUpdates(ctx context.Context, offset, timeout int) ([]T, error)
+	HandleUpdate(ctx context.Context, update T)
 }
 
-type tgpoller struct {
-	handler handler
-	api     *echotron.API
-	updates chan *echotron.Update
+type tgpoller[T any] struct {
+	handler        handler[T]
+	updates        chan T
+	updateIDGetter updateIDGetter[T]
 }
 
-func New(api *echotron.API, handler handler) *tgpoller {
-	return &tgpoller{
-		api:     api,
-		handler: handler,
-		updates: make(chan *echotron.Update),
+func New[T any](handler handler[T], updateIDGetter updateIDGetter[T]) *tgpoller[T] {
+	return &tgpoller[T]{
+		handler:        handler,
+		updates:        make(chan T),
+		updateIDGetter: updateIDGetter,
 	}
 }
 
-func (p *tgpoller) StartPolling(ctx context.Context, skipPending bool) {
+type Options struct {
+	SkipPending bool
+	Timeout     time.Duration
+}
+
+func (p *tgpoller[T]) StartPolling(ctx context.Context, options Options) {
 	wg := &sync.WaitGroup{}
 	wg.Add(2)
-	go p.poll(ctx, wg, skipPending)
+	go p.poll(ctx, wg, options)
 	go p.listen(ctx, wg)
 	wg.Wait()
 }
 
-func (p *tgpoller) poll(ctx context.Context, wg *sync.WaitGroup, skipPending bool) {
+func (p *tgpoller[T]) poll(ctx context.Context, wg *sync.WaitGroup, options Options) {
 	defer func() {
 		log.Println("poller: stopped polling updates")
 		wg.Done()
@@ -42,11 +49,9 @@ func (p *tgpoller) poll(ctx context.Context, wg *sync.WaitGroup, skipPending boo
 
 	log.Println("poller: started polling updates")
 
-	var (
-		firstRun = true
-		offset   = 0
-		timeout  = 0
-	)
+	firstRun := true
+	offset := 0
+	timeout := int(options.Timeout.Seconds())
 
 	for {
 		select {
@@ -55,19 +60,17 @@ func (p *tgpoller) poll(ctx context.Context, wg *sync.WaitGroup, skipPending boo
 		default:
 		}
 
-		response, err := p.api.GetUpdates(&echotron.UpdateOptions{Offset: offset, Timeout: timeout})
+		updates, err := p.handler.GetUpdates(ctx, offset, timeout)
 		if err != nil {
 			log.Printf("poller: error while getting updates: %v\n", err)
 			continue
 		}
 
-		updates := response.Result
-
 		if l := len(updates); l > 0 {
-			offset = updates[l-1].ID + 1
+			offset = p.updateIDGetter(updates[l-1]) + 1
 		}
 
-		if skipPending && firstRun {
+		if options.SkipPending && firstRun {
 			firstRun = false
 			continue
 		}
@@ -82,7 +85,7 @@ func (p *tgpoller) poll(ctx context.Context, wg *sync.WaitGroup, skipPending boo
 	}
 }
 
-func (p *tgpoller) listen(ctx context.Context, wg *sync.WaitGroup) {
+func (p *tgpoller[T]) listen(ctx context.Context, wg *sync.WaitGroup) {
 	defer func() {
 		log.Println("poller: stopped listening updates")
 		wg.Done()
