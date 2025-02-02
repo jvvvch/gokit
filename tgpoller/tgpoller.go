@@ -9,20 +9,25 @@ import (
 
 type updateIDGetter[T any] func(update T) int
 
-type handler[T any] interface {
+type getUpdater[T any] interface {
 	GetUpdates(ctx context.Context, offset, timeout int) ([]T, error)
+}
+
+type handler[T any] interface {
 	HandleUpdate(ctx context.Context, update T)
 }
 
 type tgpoller[T any] struct {
 	handler        handler[T]
+	getUpdater     getUpdater[T]
 	updates        chan T
 	updateIDGetter updateIDGetter[T]
 }
 
-func New[T any](handler handler[T], updateIDGetter updateIDGetter[T]) *tgpoller[T] {
+func New[T any](handler handler[T], getUpdater getUpdater[T], updateIDGetter updateIDGetter[T]) *tgpoller[T] {
 	return &tgpoller[T]{
 		handler:        handler,
+		getUpdater:     getUpdater,
 		updates:        make(chan T),
 		updateIDGetter: updateIDGetter,
 	}
@@ -60,7 +65,7 @@ func (p *tgpoller[T]) poll(ctx context.Context, wg *sync.WaitGroup, options Opti
 		default:
 		}
 
-		updates, err := p.handler.GetUpdates(ctx, offset, timeout)
+		updates, err := p.getUpdater.GetUpdates(ctx, offset, timeout)
 		if err != nil {
 			log.Printf("poller: error while getting updates: %v\n", err)
 			continue
