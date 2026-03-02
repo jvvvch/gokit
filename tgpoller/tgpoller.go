@@ -103,7 +103,7 @@ func (p *tgpoller[T]) listen(ctx context.Context, wg *sync.WaitGroup) {
 		case <-ctx.Done():
 			return
 		case u := <-p.updates:
-			go p.handler.HandleUpdate(ctx, u)
+			p.handler.HandleUpdate(ctx, u)
 		}
 	}
 }
